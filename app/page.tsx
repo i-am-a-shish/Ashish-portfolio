@@ -1,6 +1,7 @@
 "use client"
 
-import React from "react"
+import React, { JSX } from "react"
+
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import {
@@ -51,10 +52,11 @@ interface CodingProfile {
   username: string
   stats: string
   rating: string
-  icon: string
+  icon: string | JSX.Element
   link: string
   color: string
 }
+
 
 interface Project {
   title: string
@@ -144,27 +146,55 @@ const AnimatedStatCard: React.FC<{
   animatedStats: number
   statName: string
   icon: string
-}> = React.memo(({ from, to, border, animatedStats, statName, icon }) => {
+}> = ({ from, to, border, animatedStats, statName, icon }) => {
+  const [count, setCount] = useState(0)
+
+  useEffect(() => {
+    let current = 0
+    const duration = 1000 // total animation time in ms
+    const steps = 50
+    const increment = animatedStats / steps
+    const delay = duration / steps
+
+    const interval = setInterval(() => {
+      current += increment
+      if (current >= animatedStats) {
+        setCount(animatedStats)
+        clearInterval(interval)
+      } else {
+        setCount(Math.floor(current))
+      }
+    }, delay)
+
+    return () => clearInterval(interval)
+  }, [animatedStats])
+
   return (
-    <Card
-      className={`bg-gradient-to-br ${from} ${to} ${border} text-center hover:shadow-lg hover:shadow-red-500/20 transition-all duration-300`}
-    >
+    <Card className={`bg-gradient-to-br ${from} ${to} ${border} text-center hover:shadow-lg hover:shadow-red-500/20 transition-all duration-300`}>
       <CardContent className="p-6">
-        <div className="text-4xl font-bold text-red-400 mb-2">{animatedStats}+</div>
+        <div className="text-4xl font-bold text-red-400 mb-2">{count}+</div>
         <p className="text-gray-400">{statName}</p>
         <div className="text-2xl mt-2">{icon}</div>
       </CardContent>
     </Card>
   )
-})
+}
+
+
 const TechStackButton: React.FC<{ tech: TechStackItem }> = React.memo(({ tech }) => {
   return (
     <Button
-      variant="outline"
-      className="h-auto p-4 rounded-2xl bg-gradient-to-tr from-black via-red-900 to-black border border-red-500/40 text-white
-      hover:bg-gradient-to-tr hover:from-red-800 hover:via-red-600 hover:to-black
-      hover:shadow-xl hover:shadow-red-500/30 hover:scale-105 transition-all duration-300"
-    >
+  variant="outline"
+  className="h-auto p-4 rounded-2xl 
+    bg-gradient-to-tr from-black via-red-800/30 to-blue-900/20 
+    border border-red-700/30 text-red-200 
+    hover:from-red-800 hover:via-red-600 hover:to-blue-800 
+    hover:border-red-500 hover:shadow-lg hover:shadow-red-500/20 
+    hover:scale-105 transition-all duration-300"
+>
+
+
+
       <div className="flex flex-col items-center space-y-2">
         <span className="text-3xl text-red-300">{tech.icon}</span>
         <span className="font-semibold text-base text-white">{tech.name}</span>
@@ -256,24 +286,25 @@ const ProjectCard: React.FC<{ project: Project }> = React.memo(({ project }) => 
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
-            {project.images.map((image, imgIndex) => (
-              <div
-                key={imgIndex}
-                className="aspect-square overflow-hidden rounded-lg border border-red-500/20 hover:border-red-400/40 transition-colors duration-300"
-              >
-                <Image
-                  src={image || "/placeholder.svg"}
-                  alt={`${project.title} screenshot ${imgIndex + 1}`}
-                  width={300}
-                  height={300}
-                  className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-                  onError={(e) => {
-                    e.currentTarget.src = "/placeholder.svg?height=300&width=300"
-                  }}
-                />
-              </div>
-            ))}
-          </div>
+  {project.images.map((image, imgIndex) => (
+    <div
+      key={imgIndex}
+      className="relative aspect-square w-full overflow-hidden rounded-lg border border-red-500/20 hover:border-red-400/40 transition-colors duration-300"
+    >
+      <Image
+        src={image || "/placeholder.svg"}
+        alt={`${project.title} screenshot ${imgIndex + 1}`}
+        fill
+        className="object-cover rounded-lg"
+        sizes="(max-width: 768px) 100vw, 50vw"
+        priority={imgIndex === 0} // optional
+      />
+    </div>
+  ))}
+</div>
+
+
+
         </div>
       </CardContent>
     </Card>
@@ -399,6 +430,8 @@ useEffect(() => {
   const [titleTypingIndex, setTitleTypingIndex] = useState(0)
   const [currentTitleText, setCurrentTitleText] = useState("")
   const [isTypingComplete, setIsTypingComplete] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+
 
   const fullText = "|| अंतः अस्ति प्रारंभः || "
   const titles = ["MERN Stack Developer", "Problem Solver", "Flutter Developer", "Full Stack Specialist"]
@@ -451,37 +484,37 @@ useEffect(() => {
   }, [])
 
   // Title typing effect
-  useEffect(() => {
-    let typingTimer: NodeJS.Timeout
-    let pauseTimer: NodeJS.Timeout
+useEffect(() => {
+  const currentTitle = titles[currentTitleIndex]
 
-    const currentTitle = titles[currentTitleIndex]
+  let timer: NodeJS.Timeout
 
-    if (!isTypingComplete) {
-      // Typing phase
-      if (titleTypingIndex < currentTitle.length) {
-        typingTimer = setTimeout(() => {
-          setCurrentTitleText(currentTitle.slice(0, titleTypingIndex + 1))
-          setTitleTypingIndex((prev) => prev + 1)
-        }, 100)
-      } else {
-        // Completed typing current title
-        setIsTypingComplete(true)
-        // Pause before moving to next title
-        pauseTimer = setTimeout(() => {
-          setCurrentTitleIndex((prev) => (prev + 1) % titles.length)
-          setTitleTypingIndex(0)
-          setCurrentTitleText("")
-          setIsTypingComplete(false)
-        }, 2000) // Pause for 2 seconds
-      }
+  if (isDeleting) {
+    if (titleTypingIndex > 0) {
+      timer = setTimeout(() => {
+        setCurrentTitleText(currentTitle.slice(0, titleTypingIndex - 1))
+        setTitleTypingIndex((prev) => prev - 1)
+      }, 50)
+    } else {
+      setIsDeleting(false)
+      setCurrentTitleIndex((prev) => (prev + 1) % titles.length)
     }
-
-    return () => {
-      clearTimeout(typingTimer)
-      clearTimeout(pauseTimer)
+  } else {
+    if (titleTypingIndex < currentTitle.length) {
+      timer = setTimeout(() => {
+        setCurrentTitleText(currentTitle.slice(0, titleTypingIndex + 1))
+        setTitleTypingIndex((prev) => prev + 1)
+      }, 100)
+    } else {
+      timer = setTimeout(() => {
+        setIsDeleting(true)
+      }, 1500) // Wait before deleting
     }
-  }, [titleTypingIndex, currentTitleIndex, isTypingComplete, titles])
+  }
+
+  return () => clearTimeout(timer)
+}, [titleTypingIndex, isDeleting, currentTitleIndex])
+
 
   // Scroll-triggered stats animation - FIXED VERSION
   const toggleDarkMode = useCallback(() => {
@@ -530,35 +563,55 @@ useEffect(() => {
     { name: "Unity", icon: "🎮", category: "Tool" },
   ]
 
-  const codingProfiles: CodingProfile[] = [
-    {
-      platform: "LeetCode",
-      username: "simplyashish10",
-      stats: "100+ Problems Solved",
-      rating: "1456+",
-      icon: "🟡",
-      link: "https://leetcode.com/u/simplyashish10/",
-      color: "from-yellow-600 to-orange-600",
-    },
-    {
-      platform: "CodeChef",
-      username: "ashish_1030",
-      stats: "3⭐ Coder",
-      rating: "1680+",
-      icon: "🍳",
-      link: "https://www.codechef.com/users/simplyashish10",
-      color: "from-brown-600 to-yellow-600",
-    },
-    {
-      platform: "HackerRank",
-      username: "simplyashish10",
-      stats: "5⭐ Coder ",
-      rating: "1200+",
-      icon: "🔵",
-      link: "https://www.hackerrank.com/ashish_suryawan3",
-      color: "from-blue-600 to-purple-600",
-    },
-  ]
+ const codingProfiles: CodingProfile[] = [
+  {
+    platform: "LeetCode",
+    username: "simplyashish10",
+    stats: "100+ Problems Solved",
+    rating: "1456+",
+    icon: (
+      <img
+        src="https://img.icons8.com/external-tal-revivo-color-tal-revivo/24/external-level-up-your-coding-skills-and-quickly-land-a-job-logo-color-tal-revivo.png"
+        alt="LeetCode Logo"
+        className="w-8 h-8 mx-auto"
+      />
+    ),
+    link: "https://leetcode.com/u/simplyashish10/",
+    color: "from-yellow-600 to-orange-600",
+  },
+  {
+    platform: "CodeChef",
+    username: "ashish_1030",
+    stats: "3⭐ Coder",
+    rating: "1428+",
+    icon: (
+      <img
+        src="https://img.icons8.com/color/48/codechef.png"
+        alt="CodeChef Logo"
+        className="w-8 h-8 mx-auto"
+      />
+    ),
+    link: "https://www.codechef.com/users/simplyashish10",
+    color: "from-brown-600 to-yellow-600",
+  },
+  {
+    platform: "HackerRank",
+    username: "simplyashish10",
+    stats: "5⭐ Coder ",
+    rating: "1200+",
+    icon: (
+      <img
+        src="https://img.icons8.com/windows/32/hackerrank.png"
+        alt="HackerRank Logo"
+        className="w-8 h-8 mx-auto"
+      />
+    ),
+    link: "https://www.hackerrank.com/ashish_suryawan3",
+    color: "from-blue-600 to-purple-600",
+  },
+]
+
+
 
   const projects: Project[] = [
     {
@@ -725,9 +778,9 @@ useEffect(() => {
 
         <div className="text-center z-10 relative">
           <h1 className="text-5xl md:text-7xl font-bold text-red-500 font-mono tracking-wider animate-pulse">
-            {typedText}
-            <span className="animate-ping text-red-400">|</span>
-          </h1>
+  {typedText}
+</h1> 
+
         </div>
       </div>
     )
@@ -744,7 +797,7 @@ return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div className="flex justify-between items-center h-16">
         <div className="font-bold text-xl bg-gradient-to-r from-red-500 to-red-600 bg-clip-text text-transparent">
-          simplyashish10
+          SimplyAshish10
         </div>
 
         {/* Desktop Navigation */}
@@ -895,15 +948,6 @@ return (
                     <Github className="w-7 h-7" />
                   </a>
                   <a
-                    href="https://linkedin.com/in/i-am-a-shish"
-                    className="text-gray-400 hover:text-red-400 transition-colors transform hover:scale-110 duration-300"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label="LinkedIn Profile"
-                  >
-                    <Linkedin className="w-7 h-7" />
-                  </a>
-                  <a
                     href="tel:+918421860639"
                     className="text-gray-400 hover:text-red-400 transition-colors transform hover:scale-110 duration-300"
                     aria-label="Call me"
@@ -925,12 +969,12 @@ return (
 
                 {/* Image container with proper positioning */}
                 <div className="relative z-10 w-full h-full flex items-center justify-center lg:justify-end">
-                  <div className="relative w-[80%] max-w-md aspect-square">
+                  <div className="relative w-full max-w-lg aspect-square -translate-y-24 lg:-translate-y-30">
                     <Image
                       src="images/ashish-formal-photo.png"
                       alt="Ashish Suryawanshi"
-                      width={500}
-                      height={500}
+                      width={600}
+                      height={600}
                       className="object-contain drop-shadow-2xl"
                       priority
                       onError={(e) => {
@@ -967,12 +1011,13 @@ return (
                     <Trophy className="w-5 h-5 mr-2" />
                     What I've Achieved
                   </h3>
-                  <p className="text-gray-300 leading-relaxed">
-                    Winner – Smart India Hackathon (2024): National triumph among 500+ teams for building an impactful civic-tech platform.<br></br>
-                    2nd Place – PICT INC Hackathon: EV-tech innovator with a focus on sustainable mobility.<br></br>
-                    ACM Outstanding Chapter Award (2025): Recognized for leadership and contributions to the computing community.
-                    Leadership @ ACM PCCOE: Treasurer, event organizer, community builder.
-                  </p>
+                  <ul className="text-gray-300 leading-relaxed list-disc list-inside space-y-2">
+  <li><strong>Winner – Smart India Hackathon (2024)</strong>: National triumph among 500+ teams for building an impactful civic-tech platform.</li>
+  <li><strong>2nd Place – PICT INC Hackathon</strong>: EV-tech innovator with a focus on sustainable mobility.</li>
+  <li><strong>ACM Outstanding Chapter Award (2025)</strong>: Recognized for leadership and contributions to the computing community.</li>
+  <li><strong>Leadership @ ACM PCCOE</strong>: Treasurer, event organizer & community builder.</li>
+</ul>
+
                 </div>
                 <div className="bg-gradient-to-r from-gray-900/80 to-red-900/20 p-6 rounded-2xl border border-red-500/20">
                   <h3 className="text-xl font-bold text-red-400 mb-4 flex items-center">
@@ -980,7 +1025,7 @@ return (
                     What Drives Me
                   </h3>
                   <p className="text-gray-300 leading-relaxed">
-                    I’m driven by the desire to turn ideas into scalable products, blending technology, design, and user experience. Constantly learning, relentlessly improving, and always looking for the next big challenge to grow.<br></br>
+                    I’m driven by the desire to turn ideas into scalable products, blending technology, design, and user experience. Constantly learning, relentlessly improving, and always looking for the next big challenge to grow.<br></br><br></br>
 Let’s connect and build something meaningful together.
                   </p>
                 </div>
@@ -1174,7 +1219,7 @@ Let’s connect and build something meaningful together.
         <input
           type="hidden"
           name="_next"
-          value="https://your-portfolio.com/thankyou"
+          value="https://www.linkedin.com/in/i-am-a-shish/  "
         />
         <Input
           type="email"
@@ -1183,12 +1228,13 @@ Let’s connect and build something meaningful together.
           required
           className="bg-gray-800/50 border-red-500/30 text-white placeholder-gray-400 focus:border-red-400"
         />
-        <Button
-          type="submit"
-          className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800"
-        >
-          Notify Me
-        </Button>
+        <button
+  onClick={() => alert("✅ You’ll be notified soon!")}
+  className="mt-6 px-6 py-3 bg-gradient-to-tr from-black via-red-900 to-blue-900 text-white rounded-full shadow-md hover:from-red-700 hover:to-blue-800 hover:shadow-red-500/30 hover:scale-105 transition-all duration-300 font-semibold tracking-wide"
+>
+  🔔 Notify Me
+</button>
+
       </form>
     </CardContent>
   </Card>
